@@ -4,7 +4,10 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // GitHub Pages 프로젝트 경로(https://kseyeon.github.io/ancha/) 대응.
+  // 개발 서버(serve)에서는 '/' 로 두어 로컬 접속이 편하도록 함.
+  base: command === 'build' ? '/ancha/' : '/',
   plugins: [
     vue(),
   ],
@@ -21,4 +24,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))
