@@ -1,0 +1,38 @@
+// =============================================================
+// 전역 스타일 진입점 (Global entry)
+// main.ts 에서 이 파일 하나만 import 합니다.
+// =============================================================
+@use 'variables' as *;
+@use 'reset';
+
+body {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  color: $color-text;
+  background-color: $color-bg;
+}
+
+// 공통 컨테이너: 좌우 여백 + 최대 폭 가운데 정렬
+.container {
+  width: 100%;
+  max-width: $container-max;
+  margin-inline: auto;
+  padding-inline: $space-4;
+
+  @include mq(md) {
+    padding-inline: $space-8;
+  }
+}
+
+// 접근성: 화면에는 숨기되 스크린리더에는 노출
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
