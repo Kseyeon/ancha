@@ -333,11 +333,12 @@ function onPanEnd() {
 
 // 확대 오버레이 (flex + margin:auto → 더 확대해도 모든 방향으로 스크롤 가능)
 .gallery__lightbox {
-  position: absolute;
+  position: sticky;
   inset: 0;
   z-index: 20;
   display: flex;
   overflow: auto;
+  height: 100%;
   padding: 8cqw;
   background: rgba(0, 0, 0, 0.85);
   cursor: zoom-out; // 바깥 = 닫기
