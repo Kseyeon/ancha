@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// 메인 페이지 — 개요(1) ↔ 상세(2) 두 페이지를 스와이프로 전환.
-// 우→좌 스와이프 = 상세 페이지, 좌→우 = 개요.
+// 메인 페이지.
+// 개요(0): 좌우 스와이프 = 캐릭터 넘기기, 캐릭터 탭 = 상세로.
+// 상세(1): 좌→우 스와이프 또는 아바타 탭 = 개요로 복귀.
 import { computed, ref } from 'vue'
 import { useCharacters } from '@/stores/characters'
 import CharacterOverview from '@/components/CharacterOverview.vue'
@@ -22,27 +23,36 @@ const hashtags = computed(() =>
 
 // page: 0 = 개요, 1 = 상세
 const page = ref(0)
-// 첫 콘텐츠 등장은 요소별 스태거 애니메이션이 담당(no-op), 이후 페이지 전환 = 좌우 슬라이드
+// 전환 방향: 슬라이드 왼쪽(다음)/오른쪽(이전)
 const transitionName = ref<'none' | 'slide-left' | 'slide-right'>('none')
 
-function goNext() {
+// --- 캐릭터 넘기기 (좌우 스와이프 / 화살표 버튼) ---
+function nextChar() {
+  if (characters.length <= 1) return
+  transitionName.value = 'slide-left'
+  index.value = (index.value + 1) % characters.length
+}
+function prevChar() {
+  if (characters.length <= 1) return
+  transitionName.value = 'slide-right'
+  index.value = (index.value - 1 + characters.length) % characters.length
+}
+
+// --- 개요 ↔ 상세 ---
+function openDetail() {
   if (page.value !== 0) return
   transitionName.value = 'slide-left'
   page.value = 1
 }
-function goPrev() {
+function closeDetail() {
   if (page.value !== 1) return
   transitionName.value = 'slide-right'
   page.value = 0
 }
 
-// 캐릭터 전환 (개요의 화살표 버튼)
-function nextChar() {
-  if (characters.length === 0) return
-  index.value = (index.value + 1) % characters.length
-}
-
-// --- 스와이프(포인터) 감지: 터치 + 마우스 드래그 모두 지원 ---
+// --- 스와이프/탭(포인터) 감지: 터치 + 마우스 드래그 모두 지원 ---
+const TAP_MAX = 10 // 이만큼도 안 움직이면 "탭"으로 간주
+const SWIPE_MIN = 40 // 가로 스와이프로 인정할 최소 이동
 let startX = 0
 let startY = 0
 let tracking = false
@@ -54,13 +64,27 @@ function onPointerDown(e: PointerEvent) {
 function onPointerUp(e: PointerEvent) {
   if (!tracking) return
   tracking = false
-  // 세로 스크롤과 구분: 가로 이동이 충분하고 세로보다 클 때만 페이지 전환
   const dx = e.clientX - startX
   const dy = e.clientY - startY
-  // 가로 이동이 충분하고 세로보다 클 때만 페이지 전환
-  if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
-  if (dx < 0) goNext() // 우 → 좌
-  else goPrev() // 좌 → 우
+  const adx = Math.abs(dx)
+  const ady = Math.abs(dy)
+
+  // 탭: 개요에서는 상세로 진입
+  if (adx < TAP_MAX && ady < TAP_MAX) {
+    if (page.value === 0) openDetail()
+    return
+  }
+
+  // 가로 스와이프만 처리 (세로 스크롤과 구분)
+  if (adx < SWIPE_MIN || adx < ady) return
+  if (page.value === 0) {
+    // 개요: 캐릭터 넘기기
+    if (dx < 0) nextChar() // 우 → 좌 = 다음 캐릭터
+    else prevChar() // 좌 → 우 = 이전 캐릭터
+  } else {
+    // 상세: 좌 → 우 스와이프 = 개요(이전 메인화면)로 복귀
+    if (dx > 0) closeDetail()
+  }
 }
 function onPointerCancel() {
   tracking = false
@@ -78,16 +102,14 @@ function onPointerCancel() {
       <Transition :name="transitionName">
         <CharacterOverview
           v-if="current && page === 0"
-          key="overview"
+          :key="'overview-' + current.id"
           :character="current"
-          :characters-count="characters.length"
-          @next-char="nextChar"
         />
         <CharacterDetail
           v-else-if="current && page === 1"
-          key="detail"
+          :key="'detail-' + current.id"
           :character="current"
-          @back="goPrev"
+          @back="closeDetail"
         />
       </Transition>
 
@@ -96,6 +118,34 @@ function onPointerCancel() {
         v-if="current && page === 0 && current.tags.length"
         class="stage__tags"
       >{{ hashtags }}</div>
+
+      <!-- 캐릭터 전환 화살표: 슬라이드와 함께 안 움직이도록 .stage 직속에 고정 (개요에서만) -->
+      <template v-if="current && page === 0">
+        <button
+          class="stage__nav stage__nav--prev"
+          type="button"
+          aria-label="이전 캐릭터"
+          :disabled="characters.length <= 1"
+          @pointerdown.stop
+          @click.stop="prevChar"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button
+          class="stage__nav stage__nav--next"
+          type="button"
+          aria-label="다음 캐릭터"
+          :disabled="characters.length <= 1"
+          @pointerdown.stop
+          @click.stop="nextChar"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5l7 7-7 7" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </template>
 
       <div v-if="!current" class="stage__empty">
         <template v-if="state.status === 'loading'">불러오는 중…</template>
@@ -201,6 +251,34 @@ html,body {
 
 @media (prefers-reduced-motion: reduce) {
   .stage__tags { animation: none; }
+}
+
+// 캐릭터 전환 화살표: .stage 직속이라 슬라이드와 함께 안 움직임 (개요에서만 표시)
+.stage__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  background: transparent;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  animation: btn-pulse 6s ease-in-out infinite;
+
+  svg { display: block; width: 10cqw; height: auto; }
+  &:not(:disabled):hover { opacity: 0.75; animation: none; }
+  &:not(:disabled):active { transform: translateY(-50%) scale(0.92); }
+  &:disabled { cursor: default; }
+}
+.stage__nav--prev { left: 0; }
+.stage__nav--next { right: 0; }
+
+@keyframes btn-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage__nav { animation: none; }
 }
 
 // 서사 열기 버튼 (우상단 떠 있는 원형)

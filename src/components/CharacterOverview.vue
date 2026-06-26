@@ -7,12 +7,18 @@ import sparkle from '@/assets/characters/sparkle.png'
 
 const props = defineProps<{
   character: Character
-  charactersCount: number
 }>()
 
-defineEmits<{ (e: 'next-char'): void }>()
-
 const imageSrc = computed(() => resolveImage(props.character.image))
+
+// 캐릭터별 이미지 전용 클래스 (이름 기반). 예: HEE → card__char--hee, BRYAN → card__char--bryan
+const charClass = computed(() => {
+  const slug = props.character.name
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return slug ? `card__char--${slug}` : ''
+})
 </script>
 
 <template>
@@ -21,7 +27,7 @@ const imageSrc = computed(() => resolveImage(props.character.image))
     <img class="card__sparkle" :src="sparkle" alt="" aria-hidden="true" draggable="false" />
 
     <!-- 캐릭터 일러스트 (래퍼=등장 상승 / 안쪽 img=위아래 부유) -->
-    <div v-if="imageSrc" class="card__char">
+    <div v-if="imageSrc" class="card__char" :class="charClass">
       <img
         class="card__char-img"
         :src="imageSrc"
@@ -39,36 +45,6 @@ const imageSrc = computed(() => resolveImage(props.character.image))
       나이: {{ character.age }}<br />
       성별: {{ character.gender }}
     </p>
-
-    <!-- 캐릭터 전환 버튼 (우측 가운데, 왼쪽 이중 화살표) -->
-    <button
-      class="card__next"
-      type="button"
-      aria-label="캐릭터 전환"
-      :disabled="charactersCount <= 1"
-      @click="$emit('next-char')"
-    >
-      <svg class="card__chevron" viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M15 5l-7 7 7 7"
-          fill="none"
-          stroke="#fff"
-          stroke-width="1"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <svg class="card__chevron" viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M15 5l-7 7 7 7"
-          fill="none"
-          stroke="#fff"
-          stroke-width="1"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-    </button>
 
   </article>
 </template>
@@ -114,6 +90,23 @@ const imageSrc = computed(() => resolveImage(props.character.image))
   width: 100%;
   height: auto;
   animation: float-y 6s ease-in-out 2.25s infinite;
+  transition: filter 0.15s ease;
+}
+
+// 이미지 위에 마우스 오버 / 누름 → 어둡게 (탭하면 상세로 가는 피드백)
+.card__char {
+  cursor: pointer;
+
+  &:hover .card__char-img { filter: brightness(0.82); }
+  &:active .card__char-img { filter: brightness(0.65); }
+}
+
+// 캐릭터별 이미지 위치/크기 조정 — 기본값(.card__char)을 덮어씀.
+// 값만 바꿔서 BRYAN 이미지를 원하는 위치로 맞추세요.
+.card__char--bryan {
+  left: 45%; // 가로 위치 (translateX(-50%) 기준점)
+  bottom: 0vh; // 세로 위치
+  width: 130%; // 크기
 }
 
 // 이름 "HEE": [24,8] 64px / lh 76.8
@@ -147,40 +140,6 @@ const imageSrc = computed(() => resolveImage(props.character.image))
   animation: fall-in 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
 }
 
-// 전환 버튼: 우측 가운데(세로 50%), 배경 투명, 왼쪽 이중 화살표
-.card__next {
-  position: absolute;
-  top: 50%;
-  right: 4%;
-  transform: translateY(-50%);
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  padding: 6cqw;
-  background: transparent;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-
-  animation: btn-pulse 6s ease-in-out infinite;
-
-  &:not(:disabled):hover { opacity: 0.75; animation: none; }
-  &:not(:disabled):active { transform: translateY(-50%) scale(0.92); }
-
-  &:disabled { cursor: default; } // 캐릭터 1명일 때 (아이콘은 그대로 표시)
-}
-
-.card__chevron {
-  position: absolute;
-  left: 0;
-  display: block;
-  width: 20cqw;
-  height: auto;
-
-  &:last-child {
-    left: 12px;
-    opacity: .6;
-  }
-}
-
 // 위(상)에서 아래(하)로 떨어지며 페이드인 — 일반 요소용
 @keyframes fall-in {
   from { opacity: 0; transform: translateY(-32px); }
@@ -198,19 +157,12 @@ const imageSrc = computed(() => resolveImage(props.character.image))
   75%  { transform: translateY(4px); }
   100% { transform: translateY(0); }
 }
-// 화살표 버튼 opacity 펄스
-@keyframes btn-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.55; }
-}
-
 // 모션 최소화 선호 시 애니메이션 비활성화
 @media (prefers-reduced-motion: reduce) {
   .card__name,
   .card__info,
   .card__char,
-  .card__char-img,
-  .card__next {
+  .card__char-img {
     animation: none;
   }
 }

@@ -129,6 +129,28 @@ const activeSection = computed(() => props.character.sections[activeIndex.value 
   background: #222222;
   touch-action: pan-y; // 세로는 페이지 스크롤, 가로는 페이지 스와이프(JS)로 전달
   -webkit-overflow-scrolling: touch;
+
+  // 스크롤바 자리를 항상 확보 → 스크롤바 유무로 레이아웃이 좌우로 흔들리지 않음
+  scrollbar-gutter: stable;
+
+  // 커스텀 스크롤바 (Firefox)
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+
+  // 커스텀 스크롤바 (Chrome/Edge/Safari)
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
 }
 
 // 중앙 반짝이: stage 가로/세로 비율과 무관하게 정중앙에 크게 배치
@@ -253,7 +275,7 @@ const activeSection = computed(() => props.character.sections[activeIndex.value 
   margin: 0 auto;
   display: flex;
   align-items: flex-end;
-  gap: 2.222cqw;
+  gap: 2cqw;
   background: #222;
 }
 .detail__tab {
@@ -275,7 +297,7 @@ const activeSection = computed(() => props.character.sections[activeIndex.value 
   &.is-active {
     min-height: 11.667cqw;
     background: rgba(255, 255, 255, 0.2);
-    font-size: 4.444cqw;
+    font-size: 4cqw;
     font-weight: 700;
   }
 }
