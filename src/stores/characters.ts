@@ -5,7 +5,8 @@
 // =============================================================
 import { reactive } from 'vue'
 import heeImage from '@/assets/characters/hee.png'
-import { SHEET_CSV_URL } from '@/config'
+// NARRATIVE_API_URL = 서사/일정/캐릭터가 공유하는 Apps Script 웹앱 주소(쓰기용)
+import { SHEET_CSV_URL, NARRATIVE_API_URL } from '@/config'
 
 /** 상세 페이지의 탭 한 개 (제목 + 본문) */
 export interface CharacterSection {
@@ -15,11 +16,13 @@ export interface CharacterSection {
 
 export interface Character {
   id: string
-  /** 개요 큰 제목 + 상세 헤더에 쓰는 대표 이름 */
+  /** 개요 큰 제목 + 상세 헤더에 쓰는 대표 이름 = 영문이름 */
   name: string
+  /** 기본정보 탭: 성(姓) */
+  surname: string
   /** 기본정보 탭: 한글이름 */
   nameKo: string
-  /** 기본정보 탭: 영문이름 */
+  /** (구) 영문이름 열 — 현재는 name 을 영문이름으로 사용. 호환용으로만 보관 */
   nameEn: string
   age: string
   gender: string
@@ -57,6 +60,7 @@ function demoCharacters(): Character[] {
     {
       id: 'hee',
       name: 'HEE',
+      surname: '',
       nameKo: '희',
       nameEn: 'HEE',
       age: '불명',
@@ -137,6 +141,7 @@ function parseCSV(input: string): string[][] {
 // 헤더 이름을 정규화(소문자·공백/·/슬래시 제거)한 키 → Character 필드 매핑.
 type ReservedField =
   | 'name'
+  | 'surname'
   | 'nameKo'
   | 'nameEn'
   | 'age'
@@ -149,6 +154,7 @@ type ReservedField =
 
 const RESERVED_FIELD: Record<string, ReservedField> = {
   name: 'name',
+  성: 'surname',
   age: 'age',
   나이: 'age',
   gender: 'gender',
@@ -206,6 +212,7 @@ function rowsToCharacters(rows: string[][]): Character[] {
     out.push({
       id: `${name}-${r}`,
       name,
+      surname: get(idx('surname')),
       nameKo: get(idx('nameKo')),
       nameEn: get(idx('nameEn')),
       age: get(idx('age')),
@@ -271,6 +278,53 @@ async function fetchCharacters(): Promise<void> {
 // 모듈 로드 시 1회 가져오기
 void fetchCharacters()
 
+/** 편집 가능한 기본정보 필드 (name = 영문이름) */
+export type EditableField =
+  | 'name'
+  | 'surname'
+  | 'nameKo'
+  | 'age'
+  | 'gender'
+  | 'bodySpec'
+  | 'race'
+  | 'affiliation'
+
+/**
+ * 캐릭터 수정 — Apps Script 로 저장 + 화면 즉시 반영(낙관적 업데이트).
+ * (CSV 캐시 때문에 하드 새로고침 시 몇 분 지연될 수 있으나 시트엔 즉시 저장됨)
+ */
+async function updateCharacter(
+  target: Character,
+  changes: { fields?: Partial<Record<EditableField, string>>; sections?: Record<string, string> },
+): Promise<boolean> {
+  if (!NARRATIVE_API_URL) return false
+  try {
+    await fetch(NARRATIVE_API_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        type: 'character',
+        name: target.name,
+        fields: changes.fields ?? {},
+        sections: changes.sections ?? {},
+      }),
+    })
+    // 낙관적 반영 (시트 재조회 없이 화면 즉시 갱신)
+    if (changes.fields) Object.assign(target, changes.fields)
+    if (changes.sections) {
+      for (const [label, body] of Object.entries(changes.sections)) {
+        const sec = target.sections.find((s) => s.label === label)
+        if (sec) sec.body = body
+      }
+    }
+    return true
+  } catch (e) {
+    console.error('[characters] 수정 저장 실패:', e)
+    return false
+  }
+}
+
 /** 컴포넌트에서 사용하는 진입점 */
 export function useCharacters() {
   return {
@@ -279,5 +333,9 @@ export function useCharacters() {
     state,
     /** 다시 불러오기 */
     reload: fetchCharacters,
+    /** 캐릭터 수정 저장 */
+    update: updateCharacter,
+    /** 수정(쓰기) 가능 여부 = Apps Script 설정됨 */
+    canEdit: !!NARRATIVE_API_URL,
   }
 }

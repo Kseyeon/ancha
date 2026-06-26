@@ -14,8 +14,21 @@ const items = computed(() =>
     .filter((c) => c.img),
 )
 
-// 확대된 이미지 (null = 닫힘)
+// 확대된 이미지 (null = 닫힘) + 추가 줌 단계
 const zoomed = ref<{ name: string; img: string } | null>(null)
+const zoomedIn = ref(false) // 한 단계 더 확대
+
+function openZoom(it: { name: string; img: string }) {
+  zoomed.value = it
+  zoomedIn.value = false
+}
+function closeZoom() {
+  zoomed.value = null
+  zoomedIn.value = false
+}
+function toggleZoomIn() {
+  zoomedIn.value = !zoomedIn.value
+}
 </script>
 
 <template>
@@ -35,7 +48,7 @@ const zoomed = ref<{ name: string; img: string } | null>(null)
         :key="it.id"
         type="button"
         class="gallery__item"
-        @click.stop="zoomed = it"
+        @click.stop="openZoom(it)"
       >
         <img :src="it.img" :alt="it.name" draggable="false" referrerpolicy="no-referrer" />
       </button>
@@ -43,14 +56,22 @@ const zoomed = ref<{ name: string; img: string } | null>(null)
 
     <p v-if="items.length === 0" class="gallery__empty">표시할 이미지가 없습니다.</p>
 
-    <!-- 확대 오버레이: 이미지/배경 아무 곳이나 탭하면 닫힘 -->
+    <!-- 확대 오버레이: 이미지 클릭 = 한 단계 더 확대(토글), 바깥(오버레이) 클릭 = 닫기 -->
     <div
       v-if="zoomed"
       class="gallery__lightbox"
       @pointerdown.stop
-      @click="zoomed = null"
+      @click="closeZoom"
     >
-      <img :src="zoomed.img" :alt="zoomed.name" draggable="false" referrerpolicy="no-referrer" />
+      <img
+        :src="zoomed.img"
+        :alt="zoomed.name"
+        class="gallery__lightbox-img"
+        :class="{ 'is-zoom': zoomedIn }"
+        draggable="false"
+        referrerpolicy="no-referrer"
+        @click.stop="toggleZoomIn"
+      />
     </div>
   </section>
   </transition>
@@ -139,23 +160,36 @@ const zoomed = ref<{ name: string; img: string } | null>(null)
   text-align: center;
 }
 
-// 확대 오버레이
+// 확대 오버레이 (flex + margin:auto → 더 확대해도 모든 방향으로 스크롤 가능)
 .gallery__lightbox {
   position: absolute;
   inset: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: auto;
   padding: 8cqw;
   background: rgba(0, 0, 0, 0.85);
-  cursor: zoom-out;
+  cursor: zoom-out; // 바깥 = 닫기
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { width: 0; height: 0; }
+}
+.gallery__lightbox-img {
+  margin: auto; // 작을 땐 가운데, 클 땐 스크롤
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 2cqw;
+  cursor: zoom-in; // 이미지 = 더 확대
+  transition: max-width 0.2s ease, max-height 0.2s ease;
 
-  img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: 2cqw;
+  &.is-zoom {
+    max-width: none;
+    max-height: none;
+    width: 200%; // 한 단계 더 확대
+    height: auto;
+    border-radius: 0;
+    cursor: zoom-out;
   }
 }
 </style>

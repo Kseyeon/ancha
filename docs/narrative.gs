@@ -28,6 +28,7 @@ function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents)
     if (data.type === 'calendar') return postCalendar_(data)
+    if (data.type === 'character') return postCharacter_(data)
     return postNarrative_(data)
   } catch (err) {
     return json_({ ok: false, error: String(err) })
@@ -90,7 +91,82 @@ function postCalendar_(data) {
   return json_({ ok: true })
 }
 
+// ---- 캐릭터 (상세 프로필 수정) ----
+// 첫 번째 시트(캐릭터 시트)에서 name 열로 행을 찾아 해당 칸들을 수정.
+function postCharacter_(data) {
+  var name = String(data.name || '').trim()
+  if (!name) return json_({ ok: false, error: 'no name' })
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0] // 캐릭터 = 첫 탭
+  var values = sheet.getDataRange().getValues()
+  if (values.length < 2) return json_({ ok: false, error: 'empty sheet' })
+  var headers = values[0]
+
+  // name 열 찾기
+  var nameCol = -1
+  for (var c = 0; c < headers.length; c++) {
+    var hk = normKey_(headers[c])
+    if (hk === 'name' || hk === '이름') { nameCol = c; break }
+  }
+  if (nameCol < 0) return json_({ ok: false, error: 'no name column' })
+
+  // 행 찾기
+  var rowIdx = -1
+  for (var r = 1; r < values.length; r++) {
+    if (String(values[r][nameCol]).trim() === name) { rowIdx = r; break }
+  }
+  if (rowIdx < 0) return json_({ ok: false, error: 'not found' })
+
+  // 기본정보 필드 → 열 별칭
+  var FIELD_ALIASES = {
+    name: ['name', '이름'], // 영문이름(대표 이름) = name 열
+    surname: ['성'],
+    nameKo: ['한글이름', '국문이름'],
+    nameEn: ['영문이름', 'nameen'],
+    age: ['age', '나이'],
+    gender: ['gender', '성별'],
+    bodySpec: ['신장체중', '신장몸무게'],
+    race: ['종족', 'race'],
+    affiliation: ['소속및직업', '소속직업', '소속', '직업'],
+  }
+  function colForAliases(aliases) {
+    for (var c = 0; c < headers.length; c++) {
+      var h = normKey_(headers[c])
+      for (var a = 0; a < aliases.length; a++) {
+        if (h === normKey_(aliases[a])) return c
+      }
+    }
+    return -1
+  }
+
+  var fields = data.fields || {}
+  for (var f in fields) {
+    if (!FIELD_ALIASES[f]) continue
+    var col = colForAliases(FIELD_ALIASES[f])
+    if (col >= 0) sheet.getRange(rowIdx + 1, col + 1).setValue(String(fields[f]))
+  }
+
+  // 섹션(탭) → 헤더 라벨 매칭
+  var sections = data.sections || {}
+  for (var label in sections) {
+    var scol = -1
+    for (var c2 = 0; c2 < headers.length; c2++) {
+      if (String(headers[c2]).trim() === label || normKey_(headers[c2]) === normKey_(label)) {
+        scol = c2
+        break
+      }
+    }
+    if (scol >= 0) sheet.getRange(rowIdx + 1, scol + 1).setValue(String(sections[label]))
+  }
+
+  return json_({ ok: true })
+}
+
 // ---- 공용 ----
+function normKey_(s) {
+  return String(s).toLowerCase().replace(/[\s·\/.,()]/g, '').replace(/및/g, '')
+}
+
 function normDate_(s) {
   function p(n) { return ('0' + n).slice(-2) }
   // 이 런타임에선 instanceof Date 가 불안정해서 Date-유사 객체로 판별
