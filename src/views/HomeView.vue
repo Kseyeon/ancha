@@ -46,20 +46,15 @@ function nextChar() {
 let startX = 0
 let startY = 0
 let tracking = false
-// 제스처가 "세로 스크롤 가능한 내용 박스"에서 시작했는지 → 그 경우 좌우 스왑 막음
-let startedInScrollableBox = false
 function onPointerDown(e: PointerEvent) {
   tracking = true
   startX = e.clientX
   startY = e.clientY
-  const box = (e.target as HTMLElement | null)?.closest?.('.detail__card') as HTMLElement | null
-  startedInScrollableBox = !!box && box.scrollHeight - box.clientHeight > 1
 }
 function onPointerUp(e: PointerEvent) {
   if (!tracking) return
   tracking = false
-  // 스크롤되는 내용 박스 위에서 시작한 제스처는 페이지 전환하지 않음 (세로 스크롤 우선)
-  if (startedInScrollableBox) return
+  // 세로 스크롤과 구분: 가로 이동이 충분하고 세로보다 클 때만 페이지 전환
   const dx = e.clientX - startX
   const dy = e.clientY - startY
   // 가로 이동이 충분하고 세로보다 클 때만 페이지 전환

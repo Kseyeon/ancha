@@ -1,14 +1,16 @@
 <script setup lang="ts">
 // 상세 페이지 (2번째) — 탭별 정보 + 원형 아바타. Figma node 48:260.
 // 부모(stage)를 채우며, 슬라이드 트랜지션의 한 페이지로 사용됩니다.
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { resolveImage, type Character } from '@/stores/characters'
 import sparkle from '@/assets/characters/sparkle.png'
 
 const props = defineProps<{ character: Character }>()
 defineEmits<{ (e: 'back'): void }>()
 
+const rootEl = ref<HTMLElement | null>(null)
 const activeIndex = ref(0)
+
 // 캐릭터가 바뀌면 첫 탭으로
 watch(
   () => props.character.id,
@@ -17,21 +19,45 @@ watch(
   },
 )
 
+// 탭이 바뀌면 페이지 스크롤을 맨 위로
+watch(activeIndex, () => {
+  void nextTick(() => {
+    if (rootEl.value) rootEl.value.scrollTop = 0
+  })
+})
+
+function selectTab(i: number) {
+  activeIndex.value = i
+}
+
 const imageSrc = computed(() => resolveImage(props.character.image))
 
-// 첫 탭 "기본정보"(나이/성별) + 어드민에서 관리하는 섹션 탭들
-const tabs = computed(() => [
-  {
-    label: '기본정보',
-    body: `나이: ${props.character.age}\n성별: ${props.character.gender}`,
-  },
-  ...props.character.sections.map((s) => ({ label: s.label, body: s.body })),
-])
-const active = computed(() => tabs.value[Math.min(activeIndex.value, tabs.value.length - 1)])
+// 탭 라벨: "기본정보" + 시트의 섹션 열들(성격/특징/외관/기타…)
+const tabLabels = computed(() => ['기본정보', ...props.character.sections.map((s) => s.label)])
+const activeLabel = computed(
+  () => tabLabels.value[Math.min(activeIndex.value, tabLabels.value.length - 1)],
+)
+
+// 기본정보 탭에 표시할 항목들
+const basicInfo = computed(() => {
+  const c = props.character
+  return [
+    { label: '한글이름', value: c.nameKo },
+    { label: '영문이름', value: c.nameEn },
+    { label: '나이', value: c.age },
+    { label: '성별', value: c.gender },
+    { label: '신장·체중', value: c.bodySpec },
+    { label: '종족', value: c.race },
+    { label: '소속 및 직업', value: c.affiliation },
+  ]
+})
+
+// 기본정보(0번)를 제외한 섹션 본문
+const activeSection = computed(() => props.character.sections[activeIndex.value - 1])
 </script>
 
 <template>
-  <section class="detail">
+  <section ref="rootEl" class="detail">
     <!-- 배경: 중앙 큰 반짝이 (상세 페이지에는 캐릭터 일러스트 대신 반짝이만) -->
     <img class="detail__sparkle" :src="sparkle" alt="" aria-hidden="true" draggable="false" />
 
@@ -60,33 +86,49 @@ const active = computed(() => tabs.value[Math.min(activeIndex.value, tabs.value.
 
     <!-- 콘텐츠 카드 -->
     <div class="detail__card">
-      <h2 class="detail__card-title">{{ active?.label }}</h2>
-      <p class="detail__card-body">{{ active?.body }}</p>
+      <h2 class="detail__card-title">{{ activeLabel }}</h2>
+
+      <!-- 기본정보: 항목 리스트 -->
+      <dl v-if="activeIndex === 0" class="detail__info-list">
+        <div v-for="f in basicInfo" :key="f.label" class="detail__info-row">
+          <dt class="detail__info-label">{{ f.label }}</dt>
+          <dd class="detail__info-value">{{ f.value || '-' }}</dd>
+        </div>
+      </dl>
+
+      <!-- 그 외 탭: 자유 본문 -->
+      <p v-else class="detail__card-body">{{ activeSection?.body }}</p>
     </div>
 
     <!-- 하단 탭 -->
     <nav class="detail__tabs">
       <button
-        v-for="(t, i) in tabs"
+        v-for="(label, i) in tabLabels"
         :key="i"
         type="button"
         class="detail__tab"
         :class="{ 'is-active': i === activeIndex }"
-        @click="activeIndex = i"
+        @click="selectTab(i)"
       >
-        {{ t.label }}
+        {{ label }}
       </button>
     </nav>
   </section>
 </template>
 
 <style scoped lang="scss">
-// 부모(stage, 360×640 비율 + container-type)를 채움
+// 부모(stage, 360×640 비율 + container-type)를 채움.
+// 카드 내부 스크롤 대신 이 컨테이너(=상세 페이지 전체)가 세로로 스크롤된다.
 .detail {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: #222222;
+  touch-action: pan-y; // 세로는 페이지 스크롤, 가로는 페이지 스와이프(JS)로 전달
+  -webkit-overflow-scrolling: touch;
 }
 
 // 중앙 반짝이: stage 가로/세로 비율과 무관하게 정중앙에 크게 배치
@@ -148,19 +190,16 @@ const active = computed(() => tabs.value[Math.min(activeIndex.value, tabs.value.
   &:active { transform: scale(0.97); }
 }
 
-// 콘텐츠 카드: Figma box [24,159 312x415], 흰 20%, radius 8
+// 콘텐츠 카드: 정상 흐름에 배치되어 내용만큼 늘어남(내부 스크롤 없음).
+// flex-grow 로 내용이 짧아도 카드가 영역을 채워 탭이 하단에 머물게 한다.
 .detail__card {
-  position: absolute;
-  left: 6.667%;
-  top: 24.844%;
+  position: relative;
   z-index: 3;
-  width: 86.667%;
-  height: 64.844%;
+  flex: 1 0 auto;
+  margin: 48cqw 6.667% 0; // 상단 = 이름/아바타 영역만큼 띄움
   padding: 4.444cqw;
   border-radius: 2.222cqw;
   background: rgba(255, 255, 255, 0.2);
-  overflow-y: auto;
-  touch-action: pan-y; // 세로는 박스 스크롤, 가로는 페이지 스와이프(JS)로 전달
 }
 .detail__card-title {
   margin: 0 0 2.222cqw;
@@ -178,16 +217,44 @@ const active = computed(() => tabs.value[Math.min(activeIndex.value, tabs.value.
   white-space: pre-line;
 }
 
-// 하단 탭: Group 25 [32,598 296x49]
+// 기본정보: 라벨 + 값 행 목록
+.detail__info-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3.333cqw;
+}
+.detail__info-row {
+  display: flex;
+  gap: 3.333cqw;
+  color: #fff;
+  font-size: 4.444cqw;
+  line-height: 6.667cqw;
+}
+.detail__info-label {
+  flex: 0 0 26cqw;
+  font-weight: 700;
+}
+.detail__info-value {
+  flex: 1;
+  margin: 0;
+  font-weight: 400;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+// 하단 탭: 스크롤해도 화면 하단에 sticky 로 고정
 .detail__tabs {
-  position: absolute;
-  left: 8.889%;
-  bottom: 0;
+  position: sticky;
+  bottom: -1px;
   z-index: 4;
-  width: 82.222%;
+  width: 100%;
+  padding: 20px 20px 0;
+  margin: 0 auto;
   display: flex;
   align-items: flex-end;
   gap: 2.222cqw;
+  background: #222;
 }
 .detail__tab {
   flex: 1;

@@ -15,13 +15,24 @@ export interface CharacterSection {
 
 export interface Character {
   id: string
+  /** 개요 큰 제목 + 상세 헤더에 쓰는 대표 이름 */
   name: string
+  /** 기본정보 탭: 한글이름 */
+  nameKo: string
+  /** 기본정보 탭: 영문이름 */
+  nameEn: string
   age: string
   gender: string
+  /** 기본정보 탭: 신장·체중 */
+  bodySpec: string
+  /** 기본정보 탭: 종족 */
+  race: string
+  /** 기본정보 탭: 소속 및 직업 */
+  affiliation: string
   tags: string[]
   /** 'builtin:<key>' 형태이거나 외부 이미지 URL */
   image: string
-  /** 상세 페이지 탭별 본문 */
+  /** 상세 페이지 탭별 본문 (성격/특징/외관/기타 등) */
   sections: CharacterSection[]
 }
 
@@ -46,13 +57,19 @@ function demoCharacters(): Character[] {
     {
       id: 'hee',
       name: 'HEE',
-      age: '???',
+      nameKo: '희',
+      nameEn: 'HEE',
+      age: '불명',
       gender: '여',
+      bodySpec: '-',
+      race: '불명',
+      affiliation: '-',
       tags: ['특징', '성격', '해시태그'],
       image: 'builtin:hee',
       sections: [
         { label: '성격', body: '성격입니다.\nㅇㄹㅇ\nㅇㅁㄹ\nㅁㄴㅇㅁ\nㅁㄴㅇㄹ' },
         { label: '특징', body: '' },
+        { label: '외관', body: '' },
         { label: '기타', body: '' },
       ],
     },
@@ -116,45 +133,93 @@ function parseCSV(input: string): string[][] {
   return rows
 }
 
-const RESERVED = ['name', 'age', 'gender', 'tags', 'image']
+// 고정 의미를 가지는 열(=탭으로 만들지 않는 열).
+// 헤더 이름을 정규화(소문자·공백/·/슬래시 제거)한 키 → Character 필드 매핑.
+type ReservedField =
+  | 'name'
+  | 'nameKo'
+  | 'nameEn'
+  | 'age'
+  | 'gender'
+  | 'bodySpec'
+  | 'race'
+  | 'affiliation'
+  | 'tags'
+  | 'image'
+
+const RESERVED_FIELD: Record<string, ReservedField> = {
+  name: 'name',
+  age: 'age',
+  나이: 'age',
+  gender: 'gender',
+  성별: 'gender',
+  tags: 'tags',
+  태그: 'tags',
+  image: 'image',
+  이미지: 'image',
+  한글이름: 'nameKo',
+  국문이름: 'nameKo',
+  영문이름: 'nameEn',
+  nameen: 'nameEn',
+  신장체중: 'bodySpec',
+  신장몸무게: 'bodySpec',
+  종족: 'race',
+  race: 'race',
+  소속및직업: 'affiliation',
+  소속직업: 'affiliation',
+  소속: 'affiliation',
+  직업: 'affiliation',
+}
+
+/** 헤더 비교용 정규화: 소문자 + 공백·중점(·)·슬래시·점·괄호·"및" 제거 */
+function normKey(h: string): string {
+  return h.toLowerCase().replace(/[\s·/.,()]|및/g, '')
+}
 
 function rowsToCharacters(rows: string[][]): Character[] {
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ''))
   if (nonEmpty.length < 2) return []
 
   const headers = (nonEmpty[0] ?? []).map((h) => h.trim())
-  const lower = headers.map((h) => h.toLowerCase())
-  const col = (key: string) => lower.indexOf(key)
-  const nameI = col('name')
-  const ageI = col('age')
-  const genderI = col('gender')
-  const tagsI = col('tags')
-  const imageI = col('image')
+  const keys = headers.map(normKey)
+
+  // 필드 → 열 인덱스 (먼저 나온 열 우선)
+  const fieldIndex: Partial<Record<ReservedField, number>> = {}
+  keys.forEach((k, i) => {
+    const field = RESERVED_FIELD[k]
+    if (field && fieldIndex[field] === undefined) fieldIndex[field] = i
+  })
+  const idx = (field: ReservedField) => fieldIndex[field] ?? -1
 
   // 예약 열을 제외한 나머지 열 = 상세 탭 (열 순서 유지)
   const sectionCols = headers
     .map((label, i) => ({ label, i }))
-    .filter(({ label, i }) => label !== '' && !RESERVED.includes(lower[i] ?? ''))
+    .filter(({ label, i }) => label !== '' && !RESERVED_FIELD[keys[i] ?? ''])
 
   const out: Character[] = []
   for (let r = 1; r < nonEmpty.length; r++) {
     const cells = nonEmpty[r] ?? []
     const get = (i: number) => (i >= 0 && i < cells.length ? (cells[i] ?? '').trim() : '')
-    const name = get(nameI)
+    const name = get(idx('name'))
     if (!name) continue
-    const tagsRaw = get(tagsI)
+    const tagsRaw = get(idx('tags'))
     out.push({
       id: `${name}-${r}`,
       name,
-      age: get(ageI),
-      gender: get(genderI),
+      nameKo: get(idx('nameKo')),
+      nameEn: get(idx('nameEn')),
+      age: get(idx('age')),
+      gender: get(idx('gender')),
+      bodySpec: get(idx('bodySpec')),
+      race: get(idx('race')),
+      affiliation: get(idx('affiliation')),
       tags: tagsRaw
         ? tagsRaw
             .split(',')
             .map((t) => t.trim())
             .filter(Boolean)
         : [],
-      image: get(imageI),
+      image: get(idx('image')),
       sections: sectionCols.map(({ label, i }) => ({
         label,
         body: (cells[i] ?? '').trim(),
