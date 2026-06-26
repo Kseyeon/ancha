@@ -60,14 +60,6 @@ async function onSubmit() {
   }
 }
 
-// Enter = 전송, Shift+Enter = 줄바꿈
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault()
-    void onSubmit()
-  }
-}
-
 function isMine(sender: string): boolean {
   const me = myName.value.trim()
   return me !== '' && sender.trim() === me
@@ -89,17 +81,38 @@ function fmtTime(iso: string): string {
     <section v-if="open" class="nr" role="dialog" aria-modal="true" aria-label="서사">
       <header class="nr__bar">
         <h2 class="nr__title">서사</h2>
-        <button class="nr__close" type="button" aria-label="닫기" @click="emit('close')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M6 6l12 12M18 6L6 18"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
+        <div class="nr__actions">
+          <button
+            class="nr__icon"
+            :class="{ 'nr__icon--spin': state.status === 'loading' }"
+            type="button"
+            aria-label="새로고침"
+            :disabled="state.status === 'loading'"
+            @click="load"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M20 11a8 8 0 1 0-.5 3M20 5v6h-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button class="nr__icon" type="button" aria-label="닫기" @click="emit('close')">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M6 6l12 12M18 6L6 18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <div ref="listEl" class="nr__list">
@@ -154,7 +167,6 @@ function fmtTime(iso: string): string {
             placeholder="메시지를 입력하세요"
             aria-label="메시지"
             @input="autoGrow"
-            @keydown="onKeydown"
           />
           <button class="nr__submit" type="submit" :disabled="!canSend" aria-label="전송">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -193,15 +205,32 @@ function fmtTime(iso: string): string {
   font-size: $font-size-lg;
   font-weight: 700;
 }
-.nr__close {
+.nr__actions {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+}
+.nr__icon {
   display: flex;
   padding: $space-1;
   background: transparent;
   color: #fff;
   border-radius: $radius-full;
+  transition: opacity 0.15s ease;
 
   svg { width: 24px; height: 24px; }
   &:active { opacity: 0.6; }
+  &:disabled { opacity: 0.5; }
+}
+.nr__icon--spin svg {
+  animation: nr-spin 0.8s linear infinite;
+}
+@keyframes nr-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nr__icon--spin svg { animation: none; }
 }
 
 // 메시지 목록
