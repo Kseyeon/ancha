@@ -13,11 +13,13 @@
 
 var NARRATIVE_SHEET = 'guestbook'
 var CALENDAR_SHEET = 'calendar'
+var GALLERY_SHEET = 'gallery'
 
 function doGet(e) {
   try {
     var type = (e && e.parameter && e.parameter.type) || 'narrative'
     if (type === 'calendar') return getCalendar_()
+    if (type === 'gallery') return getGallery_()
     return getNarrative_()
   } catch (err) {
     return json_({ ok: false, error: String(err) })
@@ -29,6 +31,7 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents)
     if (data.type === 'calendar') return postCalendar_(data)
     if (data.type === 'character') return postCharacter_(data)
+    if (data.type === 'gallery') return postGallery_(data)
     return postNarrative_(data)
   } catch (err) {
     return json_({ ok: false, error: String(err) })
@@ -88,6 +91,32 @@ function postCalendar_(data) {
   } else {
     sheet.appendRow([key, content]) // 새 날짜 추가
   }
+  return json_({ ok: true })
+}
+
+// ---- 갤러리 (추가 사진) ----
+function getGallery_() {
+  var values = sheet_(GALLERY_SHEET, ['url']).getDataRange().getValues()
+  var out = []
+  for (var i = 1; i < values.length; i++) {
+    var url = String(values[i][0]).trim()
+    if (url) out.push({ url: url })
+  }
+  return json_({ ok: true, photos: out })
+}
+
+function postGallery_(data) {
+  var url = String(data.url || '').trim()
+  if (!url) return json_({ ok: false, error: 'no url' })
+  var sheet = sheet_(GALLERY_SHEET, ['url'])
+  if (data.action === 'delete') {
+    var values = sheet.getDataRange().getValues()
+    for (var i = values.length - 1; i >= 1; i--) {
+      if (String(values[i][0]).trim() === url) sheet.deleteRow(i + 1)
+    }
+    return json_({ ok: true })
+  }
+  sheet.appendRow([url]) // add
   return json_({ ok: true })
 }
 
