@@ -57,6 +57,7 @@ let startX = 0
 let startY = 0
 let tracking = false
 function onPointerDown(e: PointerEvent) {
+  if (narrativeOpen.value) return // 서사 팝업이 떠 있으면 뒤 화면 제스처 무시
   tracking = true
   startX = e.clientX
   startY = e.clientY
