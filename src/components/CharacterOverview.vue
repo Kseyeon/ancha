@@ -56,6 +56,9 @@ const charClass = computed(() => {
   inset: 0;
   overflow: hidden;
   background: #222222;
+  // 개요는 스크롤이 없으므로 세로/가로 스와이프를 모두 JS 가 처리하도록 네이티브 제스처 차단.
+  // (pan-y 면 모바일에서 위로 스와이프가 스크롤로 가로채여 페이지 전환이 안 먹음)
+  touch-action: none;
 }
 
 // 반짝이 장식: Figma box [117,-109 340x363]
@@ -105,7 +108,7 @@ const charClass = computed(() => {
 // 값만 바꿔서 BRYAN 이미지를 원하는 위치로 맞추세요.
 .card__char--bryan {
   left: 45%; // 가로 위치 (translateX(-50%) 기준점)
-  bottom: 0vh; // 세로 위치
+  bottom: -0.5vh; // 세로 위치
   width: 130%; // 크기
 }
 

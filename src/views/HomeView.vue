@@ -1,32 +1,37 @@
 <script setup lang="ts">
-// 메인 페이지.
-// 개요(0): 좌우 스와이프 = 캐릭터 넘기기, 캐릭터 탭 = 상세로.
-// 상세(1): 좌→우 스와이프 또는 아바타 탭 = 개요로 복귀.
+// 메인 화면.
+// 개요: 좌우 스와이프 = 캐릭터 넘기기, 캐릭터 탭 = 상세. 상세: 좌→우 = 개요 복귀.
+// 우상단 아이콘으로 서사 / 갤러리 / 일정 팝업을 연다.
 import { computed, ref } from 'vue'
 import { useCharacters } from '@/stores/characters'
 import CharacterOverview from '@/components/CharacterOverview.vue'
 import CharacterDetail from '@/components/CharacterDetail.vue'
 import NarrativeModal from '@/components/NarrativeModal.vue'
+import GalleryView from '@/components/GalleryView.vue'
+import CalendarView from '@/components/CalendarView.vue'
 
 const { characters, state } = useCharacters()
 
-// 서사(채팅) 팝업 열림 상태
+// 팝업 열림 상태
 const narrativeOpen = ref(false)
+const galleryOpen = ref(false)
+const calendarOpen = ref(false)
+const anyPopupOpen = computed(
+  () => narrativeOpen.value || galleryOpen.value || calendarOpen.value,
+)
 
 const index = ref(0)
 const current = computed(() => characters[Math.min(index.value, characters.length - 1)])
 
-// 해시태그 칩 텍스트 (개요 페이지에서만 .stage 직속에 고정 표시)
 const hashtags = computed(() =>
   current.value ? current.value.tags.map((t) => `#${t}`).join('  ') : '',
 )
 
-// page: 0 = 개요, 1 = 상세
+// 메인 내부 페이지: 0 = 개요, 1 = 상세
 const page = ref(0)
-// 전환 방향: 슬라이드 왼쪽(다음)/오른쪽(이전)
 const transitionName = ref<'none' | 'slide-left' | 'slide-right'>('none')
 
-// --- 캐릭터 넘기기 (좌우 스와이프 / 화살표 버튼) ---
+// --- 캐릭터 넘기기 ---
 function nextChar() {
   if (characters.length <= 1) return
   transitionName.value = 'slide-left'
@@ -50,14 +55,14 @@ function closeDetail() {
   page.value = 0
 }
 
-// --- 스와이프/탭(포인터) 감지: 터치 + 마우스 드래그 모두 지원 ---
-const TAP_MAX = 10 // 이만큼도 안 움직이면 "탭"으로 간주
-const SWIPE_MIN = 40 // 가로 스와이프로 인정할 최소 이동
+// --- 스와이프/탭(포인터) 감지 ---
+const TAP_MAX = 10
+const SWIPE_MIN = 40
 let startX = 0
 let startY = 0
 let tracking = false
 function onPointerDown(e: PointerEvent) {
-  if (narrativeOpen.value) return // 서사 팝업이 떠 있으면 뒤 화면 제스처 무시
+  if (anyPopupOpen.value) return // 팝업이 떠 있으면 뒤 화면 제스처 무시
   tracking = true
   startX = e.clientX
   startY = e.clientY
@@ -76,15 +81,13 @@ function onPointerUp(e: PointerEvent) {
     return
   }
 
-  // 가로 스와이프만 처리 (세로 스크롤과 구분)
+  // 가로 스와이프만 처리 (세로는 무시)
   if (adx < SWIPE_MIN || adx < ady) return
   if (page.value === 0) {
-    // 개요: 캐릭터 넘기기
     if (dx < 0) nextChar() // 우 → 좌 = 다음 캐릭터
     else prevChar() // 좌 → 우 = 이전 캐릭터
   } else {
-    // 상세: 좌 → 우 스와이프 = 개요(이전 메인화면)로 복귀
-    if (dx > 0) closeDetail()
+    if (dx > 0) closeDetail() // 상세: 좌 → 우 = 개요로
   }
 }
 function onPointerCancel() {
@@ -114,13 +117,13 @@ function onPointerCancel() {
         />
       </Transition>
 
-      <!-- 해시태그 칩: 페이지와 함께 슬라이드되지 않도록 .stage 직속에 고정 -->
+      <!-- 해시태그 칩 (개요에서만) -->
       <div
         v-if="current && page === 0 && current.tags.length"
         class="stage__tags"
       >{{ hashtags }}</div>
 
-      <!-- 캐릭터 전환 화살표: 슬라이드와 함께 안 움직이도록 .stage 직속에 고정 (개요에서만) -->
+      <!-- 캐릭터 전환 화살표 (개요에서만, 고정) -->
       <template v-if="current && page === 0">
         <button
           class="stage__nav stage__nav--prev"
@@ -161,27 +164,32 @@ function onPointerCancel() {
         <template v-else>표시할 캐릭터가 없습니다.</template>
       </div>
 
-      <!-- 서사(채팅) 열기 버튼 — 우상단. 스와이프와 분리되도록 이벤트 전파 차단 -->
-      <button
-        class="chat-fab"
-        type="button"
-        aria-label="서사 열기"
-        @pointerdown.stop
-        @click.stop="narrativeOpen = true"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"
-            fill="none"
-            stroke="#fff"
-            stroke-width="1.6"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+      <!-- 우상단 아이콘 묶음 (개요·상세 모두): 서사 / 갤러리 / 일정 -->
+      <div v-if="current" class="fab-stack">
+        <button class="fab" type="button" aria-label="서사 열기" @pointerdown.stop @click.stop="narrativeOpen = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button class="fab" type="button" aria-label="갤러리 열기" @pointerdown.stop @click.stop="galleryOpen = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#fff" stroke-width="1.6" />
+            <circle cx="8.5" cy="10" r="1.6" fill="#fff" />
+            <path d="M5 18l5-5 4 4 2-2 3 3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button class="fab" type="button" aria-label="일정 열기" @pointerdown.stop @click.stop="calendarOpen = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="#fff" stroke-width="1.6" />
+            <path d="M4 9h16M8 3v4M16 3v4" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
 
-      <!-- 서사 팝업 (stage 를 덮음) -->
+      <!-- 팝업들 (stage 를 덮음) -->
       <NarrativeModal :open="narrativeOpen" @close="narrativeOpen = false" />
+      <GalleryView :open="galleryOpen" @close="galleryOpen = false" />
+      <CalendarView :open="calendarOpen" @close="calendarOpen = false" />
     </div>
   </div>
 </template>
@@ -196,15 +204,14 @@ html,body {
   align-items: center;
   justify-content: center;
   height: 100dvh;
-  background: #222; // 모바일: 카드와 동일하게 letterbox 블렌드
+  background: #222;
 
   @include mq(md) {
-    background: #141414; // 데스크톱: 카드 가장자리가 보이도록 더 어둡게
+    background: #141414;
     padding: $space-8;
   }
 }
 
-// 카드 사이즈/클리핑 박스 (두 페이지의 공통 무대)
 .stage {
   position: relative;
   width: 100%;
@@ -213,8 +220,8 @@ html,body {
   aspect-ratio: 360 / 640;
   overflow: hidden;
   background: #222222;
-  container-type: inline-size; // 자식 페이지의 cqw 기준
-  touch-action: pan-y; // 세로 스크롤 허용, 가로 스와이프는 직접 처리
+  container-type: inline-size;
+  touch-action: pan-y;
 
   @include mq(md) {
     max-width: 390px;
@@ -223,12 +230,12 @@ html,body {
   }
 }
 
-// 해시태그 칩: .stage 기준으로 고정 (개요에서만 표시, 전환 시 슬라이드 안 함)
+// 해시태그 칩
 .stage__tags {
-  position: absolute; // .stage가 relative+container라 stage 기준으로 고정됨
+  position: absolute;
   left: 43.889%;
   top: 90.938%;
-  z-index: 5; // 슬라이드되는 페이지들 위로
+  z-index: 5;
   width: 48.056%;
   height: 5.938%;
   display: flex;
@@ -240,11 +247,9 @@ html,body {
   font-size: 3.889cqw;
   font-weight: 700;
   white-space: nowrap;
-  // 해시태그: 가장 마지막으로 위→아래로 하강
   animation: tags-fall-in 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
 }
 
-// 위(상)에서 아래(하)로 떨어지며 페이드인
 @keyframes tags-fall-in {
   from { opacity: 0; transform: translateY(-28px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -254,7 +259,7 @@ html,body {
   .stage__tags { animation: none; }
 }
 
-// 캐릭터 전환 화살표: .stage 직속이라 슬라이드와 함께 안 움직임 (개요에서만 표시)
+// 캐릭터 전환 화살표
 .stage__nav {
   position: absolute;
   top: 50%;
@@ -282,12 +287,17 @@ html,body {
   .stage__nav { animation: none; }
 }
 
-// 서사 열기 버튼 (우상단 떠 있는 원형)
-.chat-fab {
+// 우상단 아이콘 묶음 (세로 스택)
+.fab-stack {
   position: absolute;
   top: 3.5%;
   right: 4%;
   z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 3cqw;
+}
+.fab {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -318,7 +328,7 @@ html,body {
 }
 </style>
 
-<!-- 페이지 슬라이드 트랜지션 (자식 컴포넌트 루트에 적용되므로 비-scoped) -->
+<!-- 가로 슬라이드 트랜지션 (자식 컴포넌트 루트에 적용되므로 비-scoped) -->
 <style lang="scss">
 .slide-left-enter-active,
 .slide-left-leave-active,
@@ -326,16 +336,8 @@ html,body {
 .slide-right-leave-active {
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.slide-left-enter-from {
-  transform: translateX(100%);
-}
-.slide-left-leave-to {
-  transform: translateX(-100%);
-}
-.slide-right-enter-from {
-  transform: translateX(-100%);
-}
-.slide-right-leave-to {
-  transform: translateX(100%);
-}
+.slide-left-enter-from { transform: translateX(100%); }
+.slide-left-leave-to { transform: translateX(-100%); }
+.slide-right-enter-from { transform: translateX(-100%); }
+.slide-right-leave-to { transform: translateX(100%); }
 </style>

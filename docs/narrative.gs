@@ -1,27 +1,48 @@
 /**
- * 서사(채팅) 백엔드 — Google Apps Script
+ * 서사(채팅) + 캘린더 통합 백엔드 — Google Apps Script
  * 캐릭터 데이터가 든 구글 시트에 "확장 프로그램 → Apps Script"로 붙여넣고
  * 웹 앱으로 배포하세요. (자세한 순서는 docs/narrative-setup.md 참고)
  *
- * - GET  : 서사 메시지 목록을 JSON 으로 반환
- * - POST : { sender, message } 를 받아 시트에 행 추가(작성시간 자동 기록)
- * - SHEET_NAME 시트 탭은 없으면 자동 생성됩니다.
- *   (이미 'guestbook' 탭으로 배포해 데이터가 있다면 값을 그대로 두세요.)
+ * 하나의 웹앱 URL 로 두 기능을 처리합니다 (type 파라미터로 구분):
+ *  - 서사(기본):  GET → 메시지 목록 / POST {sender, message} → 행 추가
+ *  - 캘린더:      GET ?type=calendar → 일정 목록
+ *                 POST {type:'calendar', date, content} → 해당 날짜 upsert(내용 비우면 삭제)
+ *
+ * 시트 탭('guestbook', 'calendar')은 없으면 자동 생성됩니다.
  */
 
-var SHEET_NAME = 'guestbook'
+var NARRATIVE_SHEET = 'guestbook'
+var CALENDAR_SHEET = 'calendar'
 
-function doGet() {
-  var sheet = getSheet_()
-  var values = sheet.getDataRange().getValues()
+function doGet(e) {
+  try {
+    var type = (e && e.parameter && e.parameter.type) || 'narrative'
+    if (type === 'calendar') return getCalendar_()
+    return getNarrative_()
+  } catch (err) {
+    return json_({ ok: false, error: String(err) })
+  }
+}
+
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents)
+    if (data.type === 'calendar') return postCalendar_(data)
+    return postNarrative_(data)
+  } catch (err) {
+    return json_({ ok: false, error: String(err) })
+  }
+}
+
+// ---- 서사(채팅) ----
+function getNarrative_() {
+  var values = sheet_(NARRATIVE_SHEET, ['timestamp', 'sender', 'message']).getDataRange().getValues()
   var out = []
   for (var i = 1; i < values.length; i++) {
-    var ts = values[i][0]
-    var sender = values[i][1]
-    var message = values[i][2]
+    var ts = values[i][0], sender = values[i][1], message = values[i][2]
     if (!sender && !message) continue
     out.push({
-      timestamp: ts instanceof Date ? ts.toISOString() : String(ts),
+      timestamp: ts && typeof ts.toISOString === 'function' ? ts.toISOString() : String(ts),
       sender: String(sender),
       message: String(message),
     })
@@ -29,25 +50,64 @@ function doGet() {
   return json_({ ok: true, messages: out })
 }
 
-function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents)
-    var sender = String(data.sender || '').trim().slice(0, 20)
-    var message = String(data.message || '').trim().slice(0, 2000)
-    if (!sender || !message) return json_({ ok: false, error: 'empty' })
-    getSheet_().appendRow([new Date(), sender, message])
-    return json_({ ok: true })
-  } catch (err) {
-    return json_({ ok: false, error: String(err) })
-  }
+function postNarrative_(data) {
+  var sender = String(data.sender || '').trim().slice(0, 20)
+  var message = String(data.message || '').trim().slice(0, 2000)
+  if (!sender || !message) return json_({ ok: false, error: 'empty' })
+  sheet_(NARRATIVE_SHEET, ['timestamp', 'sender', 'message']).appendRow([new Date(), sender, message])
+  return json_({ ok: true })
 }
 
-function getSheet_() {
+// ---- 캘린더 ----
+function getCalendar_() {
+  var values = sheet_(CALENDAR_SHEET, ['date', 'content']).getDataRange().getValues()
+  var out = []
+  for (var i = 1; i < values.length; i++) {
+    var key = normDate_(values[i][0])
+    if (!key) continue
+    out.push({ date: key, content: String(values[i][1]) })
+  }
+  return json_({ ok: true, events: out })
+}
+
+function postCalendar_(data) {
+  var key = normDate_(data.date)
+  var content = String(data.content || '').trim().slice(0, 2000)
+  if (!key) return json_({ ok: false, error: 'bad date' })
+  var sheet = sheet_(CALENDAR_SHEET, ['date', 'content'])
+  var values = sheet.getDataRange().getValues()
+  var row = -1
+  for (var i = 1; i < values.length; i++) {
+    if (normDate_(values[i][0]) === key) { row = i + 1; break }
+  }
+  if (content === '') {
+    if (row > 0) sheet.deleteRow(row) // 내용 비우면 삭제
+  } else if (row > 0) {
+    sheet.getRange(row, 2).setValue(content) // 기존 날짜 수정
+  } else {
+    sheet.appendRow([key, content]) // 새 날짜 추가
+  }
+  return json_({ ok: true })
+}
+
+// ---- 공용 ----
+function normDate_(s) {
+  function p(n) { return ('0' + n).slice(-2) }
+  // 이 런타임에선 instanceof Date 가 불안정해서 Date-유사 객체로 판별
+  if (s && typeof s.getMonth === 'function') {
+    return s.getFullYear() + '-' + p(s.getMonth() + 1) + '-' + p(s.getDate())
+  }
+  var m = String(s).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
+  if (!m) return ''
+  return m[1] + '-' + p(m[2]) + '-' + p(m[3])
+}
+
+function sheet_(name, header) {
   var ss = SpreadsheetApp.getActiveSpreadsheet()
-  var sheet = ss.getSheetByName(SHEET_NAME)
+  var sheet = ss.getSheetByName(name)
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME)
-    sheet.appendRow(['timestamp', 'sender', 'message'])
+    sheet = ss.insertSheet(name)
+    sheet.appendRow(header)
   }
   return sheet
 }

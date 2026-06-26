@@ -77,7 +77,7 @@ function fmtTime(iso: string): string {
 </script>
 
 <template>
-  <transition name="nr-fade">
+  <transition name="nr-fade" @after-enter="scrollToBottom">
     <section v-if="open" class="nr" role="dialog" aria-modal="true" aria-label="서사">
       <header class="nr__bar">
         <h2 class="nr__title">서사</h2>

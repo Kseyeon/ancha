@@ -36,3 +36,18 @@ export const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS
 // 웹 앱 URL 은 반드시 …/exec 로 끝나야 하고, 액세스 권한은 "모든 사용자"여야 합니다.
 //
 export const NARRATIVE_API_URL = 'https://script.google.com/macros/s/AKfycbwC8T5zV3tUguoAOBb3cftgvU7VWWOTF4HKZ-GOXvHTbcyI1NIeH6e3Z_4FyxDsFG48/exec'
+
+// =============================================================
+// 캘린더 일정 설정 — Google Apps Script 웹앱 주소 (읽기+쓰기)
+// =============================================================
+//
+// 캘린더는 서사와 같은 Apps Script 웹앱을 함께 사용합니다.
+// docs/narrative.gs 를 (서사+캘린더 통합 버전으로) 붙여넣고 "새 버전"으로 재배포하면,
+// 서사용 URL 과 동일한 …/exec 주소 하나로 캘린더 읽기/쓰기까지 처리됩니다.
+//
+// → 아래 값은 서사(NARRATIVE_API_URL)와 같은 URL 로 두면 됩니다.
+//   (스크립트를 통합 버전으로 재배포해야 캘린더가 동작합니다. 그 전엔 모두 "아무 것도 안 합니다.")
+//
+// 시트 탭 'calendar'(date | content)는 첫 일정 저장 시 자동 생성됩니다.
+//
+export const CALENDAR_API_URL = 'https://script.google.com/macros/s/AKfycbwC8T5zV3tUguoAOBb3cftgvU7VWWOTF4HKZ-GOXvHTbcyI1NIeH6e3Z_4FyxDsFG48/exec'

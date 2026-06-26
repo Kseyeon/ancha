@@ -166,40 +166,13 @@ const activeSection = computed(() => props.character.sections[activeIndex.value 
   user-select: none;
 }
 
-// 이름 "HEE": [24,8] 64px
-.detail__name {
-  position: absolute;
-  left: 6.667%;
-  top: 1.25%;
-  z-index: 3;
-  margin: 0;
-  color: #fff;
-  font-size: 17.778cqw;
-  line-height: 21.333cqw;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-// 기본 정보: [30,83] 16px
-.detail__info {
-  position: absolute;
-  left: 8.333%;
-  top: 12.969%;
-  z-index: 3;
-  margin: 0;
-  color: #fff;
-  font-size: 4.444cqw;
-  line-height: 7.111cqw;
-  font-weight: 700;
-}
-
-// 원형 아바타: Figma box [247,27 100x100]
+// 원형 아바타: 좌상단으로 이동
 .detail__avatar {
   position: absolute;
-  left: 68.611%;
-  top: 4.219%;
+  left: 5.5%;
+  top: 4%;
   z-index: 4;
-  width: 27.778%;
+  width: 25%;
   aspect-ratio: 1;
   border-radius: 50%;
   overflow: hidden;
@@ -210,6 +183,34 @@ const activeSection = computed(() => props.character.sections[activeIndex.value 
   img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
   &:hover { transform: scale(1.03); }
   &:active { transform: scale(0.97); }
+}
+
+// 이름: 아바타 오른쪽
+.detail__name {
+  position: absolute;
+  left: 35%;
+  top: 5%;
+  z-index: 3;
+  margin: 0;
+  color: #fff;
+  font-size: 11cqw;
+  line-height: 13cqw;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+// 기본 정보: 이름 아래(아바타 오른쪽)
+.detail__info {
+  position: absolute;
+  left: 35%;
+  top: 12%;
+  z-index: 3;
+  margin: 0;
+  color: #fff;
+  font-size: 4cqw;
+  line-height: 6cqw;
+  font-weight: 700;
 }
 
 // 콘텐츠 카드: 정상 흐름에 배치되어 내용만큼 늘어남(내부 스크롤 없음).
