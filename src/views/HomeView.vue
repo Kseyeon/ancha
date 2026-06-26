@@ -11,9 +11,15 @@ const { characters, state } = useCharacters()
 const index = ref(0)
 const current = computed(() => characters[Math.min(index.value, characters.length - 1)])
 
+// 해시태그 칩 텍스트 (개요 페이지에서만 .stage 직속에 고정 표시)
+const hashtags = computed(() =>
+  current.value ? current.value.tags.map((t) => `#${t}`).join('  ') : '',
+)
+
 // page: 0 = 개요, 1 = 상세
 const page = ref(0)
-const transitionName = ref<'slide-left' | 'slide-right'>('slide-left')
+// 첫 콘텐츠 등장은 요소별 스태거 애니메이션이 담당(no-op), 이후 페이지 전환 = 좌우 슬라이드
+const transitionName = ref<'none' | 'slide-left' | 'slide-right'>('none')
 
 function goNext() {
   if (page.value !== 0) return
@@ -86,6 +92,12 @@ function onPointerCancel() {
         />
       </Transition>
 
+      <!-- 해시태그 칩: 페이지와 함께 슬라이드되지 않도록 .stage 직속에 고정 -->
+      <div
+        v-if="current && page === 0 && current.tags.length"
+        class="stage__tags"
+      >{{ hashtags }}</div>
+
       <div v-if="!current" class="stage__empty">
         <template v-if="state.status === 'loading'">불러오는 중…</template>
         <template v-else-if="state.status === 'unconfigured'">
@@ -103,13 +115,15 @@ function onPointerCancel() {
 </template>
 
 <style scoped lang="scss">
+html,body {
+  background: #222;
+}
 .screen {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100dvh;
   background: #222; // 모바일: 카드와 동일하게 letterbox 블렌드
 
   @include mq(md) {
@@ -123,7 +137,7 @@ function onPointerCancel() {
   position: relative;
   width: 100%;
   max-width: 100%;
-  height: 100vh;
+  height: 100%;
   aspect-ratio: 360 / 640;
   overflow: hidden;
   background: #222222;
@@ -135,6 +149,37 @@ function onPointerCancel() {
     border-radius: 24px;
     box-shadow: $shadow-lg;
   }
+}
+
+// 해시태그 칩: .stage 기준으로 고정 (개요에서만 표시, 전환 시 슬라이드 안 함)
+.stage__tags {
+  position: absolute; // .stage가 relative+container라 stage 기준으로 고정됨
+  left: 43.889%;
+  top: 90.938%;
+  z-index: 5; // 슬라이드되는 페이지들 위로
+  width: 48.056%;
+  height: 5.938%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5.56cqw;
+  background: rgba(255, 255, 255, 0.89);
+  color: #000;
+  font-size: 3.889cqw;
+  font-weight: 700;
+  white-space: nowrap;
+  // 해시태그: 가장 마지막으로 위→아래로 하강
+  animation: tags-fall-in 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+}
+
+// 위(상)에서 아래(하)로 떨어지며 페이드인
+@keyframes tags-fall-in {
+  from { opacity: 0; transform: translateY(-28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage__tags { animation: none; }
 }
 
 .stage__empty {
