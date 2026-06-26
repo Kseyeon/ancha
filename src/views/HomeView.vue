@@ -5,8 +5,12 @@ import { computed, ref } from 'vue'
 import { useCharacters } from '@/stores/characters'
 import CharacterOverview from '@/components/CharacterOverview.vue'
 import CharacterDetail from '@/components/CharacterDetail.vue'
+import NarrativeModal from '@/components/NarrativeModal.vue'
 
 const { characters, state } = useCharacters()
+
+// 서사(채팅) 팝업 열림 상태
+const narrativeOpen = ref(false)
 
 const index = ref(0)
 const current = computed(() => characters[Math.min(index.value, characters.length - 1)])
@@ -110,6 +114,28 @@ function onPointerCancel() {
         </template>
         <template v-else>표시할 캐릭터가 없습니다.</template>
       </div>
+
+      <!-- 서사(채팅) 열기 버튼 — 우상단. 스와이프와 분리되도록 이벤트 전파 차단 -->
+      <button
+        class="chat-fab"
+        type="button"
+        aria-label="서사 열기"
+        @pointerdown.stop
+        @click.stop="narrativeOpen = true"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"
+            fill="none"
+            stroke="#fff"
+            stroke-width="1.6"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+
+      <!-- 서사 팝업 (stage 를 덮음) -->
+      <NarrativeModal :open="narrativeOpen" @close="narrativeOpen = false" />
     </div>
   </div>
 </template>
@@ -180,6 +206,27 @@ html,body {
 
 @media (prefers-reduced-motion: reduce) {
   .stage__tags { animation: none; }
+}
+
+// 서사 열기 버튼 (우상단 떠 있는 원형)
+.chat-fab {
+  position: absolute;
+  top: 3.5%;
+  right: 4%;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 11cqw;
+  height: 11cqw;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.15s ease, transform 0.1s ease;
+
+  svg { width: 6cqw; height: 6cqw; }
+  &:hover { opacity: 0.85; }
+  &:active { transform: scale(0.9); }
 }
 
 .stage__empty {

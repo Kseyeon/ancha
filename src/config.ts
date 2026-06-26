@@ -20,3 +20,14 @@
 //  ─ 본문에 줄바꿈은 셀 안에서 Alt+Enter 로 입력 가능
 //
 export const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS9jhtoHEVtUEAdnpJ6bpAKydvzdSnR6a3UgiM6f5YaQXJLyt-DUwWzumjASLRWo34wAciYnMVAfpJ4/pub?output=csv'
+
+// =============================================================
+// 서사(채팅) 설정 — Google Apps Script 웹앱 주소
+// =============================================================
+//
+// 서사는 읽기·쓰기를 모두 Apps Script 웹앱으로 처리합니다.
+// (CSV 게시 방식과 달리 새 글이 즉시 반영됩니다.)
+// 설정 순서는 docs/narrative-setup.md 참고.
+// 웹 앱 URL 은 반드시 …/exec 로 끝나야 하고, 액세스 권한은 "모든 사용자"여야 합니다.
+//
+export const NARRATIVE_API_URL = 'https://script.google.com/macros/s/AKfycbwC8T5zV3tUguoAOBb3cftgvU7VWWOTF4HKZ-GOXvHTbcyI1NIeH6e3Z_4FyxDsFG48/exec'
