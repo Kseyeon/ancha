@@ -110,7 +110,7 @@ function onPanEnd() {
 
 <template>
   <transition name="gallery-fade">
-  <section v-if="open" class="gallery" role="dialog" aria-modal="true" aria-label="갤러리">
+  <section v-if="open" class="gallery" :class="{ 'is-locked': zoomed }" role="dialog" aria-modal="true" aria-label="갤러리">
     <button class="gallery__close" type="button" aria-label="닫기" @click="emit('close')">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -202,6 +202,12 @@ function onPanEnd() {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none; // 갤러리는 스크롤바 숨김
   &::-webkit-scrollbar { width: 0; height: 0; }
+
+  // 확대 보기 중에는 뒤 화면 스크롤 잠금
+  &.is-locked {
+    overflow: hidden;
+    touch-action: none;
+  }
 }
 
 .gallery__close {
