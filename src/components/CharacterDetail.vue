@@ -59,6 +59,22 @@ const basicInfo = computed(() =>
 // 기본정보(0번)를 제외한 섹션 본문
 const activeSection = computed(() => props.character.sections[activeIndex.value - 1])
 
+// 본문 안의 URL을 클릭 가능한 링크로. v-html 사용 전 HTML 이스케이프(XSS 방지).
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+const URL_RE = /(https?:\/\/[^\s<]+)/g
+function linkify(text: string): string {
+  return escapeHtml(text).replace(URL_RE, (raw) => {
+    // 끝에 붙은 문장부호()는 링크에서 제외
+    const m = raw.match(/^(.*?)([.,!?;:)\]]*)$/s)
+    const url = m ? m[1] : raw
+    const tail = m ? m[2] : ''
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${tail}`
+  })
+}
+const activeBodyHtml = computed(() => linkify(activeSection.value?.body ?? ''))
+
 // --- 수정 ---
 const editing = ref(false)
 const saving = ref(false)
@@ -173,7 +189,8 @@ async function saveEdit() {
 
       <!-- 그 외 탭: 자유 본문 -->
       <template v-else>
-        <p v-if="!editing" class="detail__card-body">{{ activeSection?.body }}</p>
+        <!-- eslint-disable-next-line vue/no-v-html -- linkify()가 HTML 이스케이프 후 URL만 링크로 변환 -->
+        <p v-if="!editing" class="detail__card-body" v-html="activeBodyHtml"></p>
         <textarea
           v-else
           v-model="bodyDraft"
@@ -376,6 +393,14 @@ async function saveEdit() {
   line-height: 7.222cqw;
   font-weight: 400;
   white-space: pre-line;
+  word-break: break-word;
+
+  // v-html로 생성된 링크에는 scoped 속성이 없으므로 :deep() 필요
+  :deep(a) {
+    color: $color-primary;
+    text-decoration: underline;
+    &:active { opacity: 0.6; }
+  }
 }
 
 // 수정 모드 입력
