@@ -28,7 +28,7 @@ const items = computed<Item[]>(() => {
     img: url,
     deletable: true,
   }))
-  return [...chars, ...photos]
+  return [...photos]
 })
 
 // 열릴 때 추가 사진 새로고침

@@ -35,7 +35,8 @@ async function load(): Promise<void> {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as { ok?: boolean; error?: string; photos?: { url: string }[] }
     if (!data.ok) throw new Error(data.error || '불러오기 실패')
-    state.photos = (data.photos ?? []).map((p) => p.url).filter(Boolean)
+    // 시트는 추가된 순서(오래된 것부터)로 반환 → 뒤집어서 최신이 위로 오게
+    state.photos = (data.photos ?? []).map((p) => p.url).filter(Boolean).reverse()
     state.status = 'ready'
   } catch (e) {
     state.error = e instanceof Error ? e.message : String(e)
