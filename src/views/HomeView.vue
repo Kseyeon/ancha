@@ -10,7 +10,7 @@ import NarrativeModal from '@/components/NarrativeModal.vue'
 import GalleryView from '@/components/GalleryView.vue'
 import CalendarView from '@/components/CalendarView.vue'
 
-const { characters, state } = useCharacters()
+const { characters, state, reload } = useCharacters()
 
 // 팝업 열림 상태
 const narrativeOpen = ref(false)
@@ -67,6 +67,26 @@ function onPointerDown(e: PointerEvent) {
   startX = e.clientX
   startY = e.clientY
 }
+
+// --- 당겨서 새로고침 (개요 화면 전용: 세로 스크롤이 없으므로 충돌 없음) ---
+const PULL_TRIGGER = 70 // 이 거리(px) 이상 당기면 새로고침
+const PULL_MAX = 110 // 인디케이터가 따라오는 최대 거리
+const pullDist = ref(0) // 현재 당긴 거리(저항 적용 후)
+const refreshing = computed(() => state.status === 'loading')
+const pullReady = computed(() => pullDist.value >= PULL_TRIGGER)
+
+function onPointerMove(e: PointerEvent) {
+  if (!tracking || page.value !== 0) return
+  const dy = e.clientY - startY
+  const dx = e.clientX - startX
+  // 아래로, 세로가 우세할 때만 당김으로 인식
+  if (dy > 0 && dy > Math.abs(dx)) {
+    pullDist.value = Math.min(dy * 0.5, PULL_MAX) // 0.5 = 고무줄 저항
+  } else {
+    pullDist.value = 0
+  }
+}
+
 function onPointerUp(e: PointerEvent) {
   if (!tracking) return
   tracking = false
@@ -74,6 +94,14 @@ function onPointerUp(e: PointerEvent) {
   const dy = e.clientY - startY
   const adx = Math.abs(dx)
   const ady = Math.abs(dy)
+
+  // 당겨서 새로고침: 충분히 당겼으면 reload
+  if (page.value === 0 && pullDist.value >= PULL_TRIGGER && !refreshing.value) {
+    pullDist.value = 0
+    void reload()
+    return
+  }
+  pullDist.value = 0
 
   // 탭: 개요에서는 상세로 진입
   if (adx < TAP_MAX && ady < TAP_MAX) {
@@ -92,6 +120,7 @@ function onPointerUp(e: PointerEvent) {
 }
 function onPointerCancel() {
   tracking = false
+  pullDist.value = 0
 }
 </script>
 
@@ -100,9 +129,22 @@ function onPointerCancel() {
     <div
       class="stage"
       @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerCancel"
     >
+      <!-- 당겨서 새로고침 인디케이터 (개요에서만) -->
+      <div
+        v-if="page === 0 && (pullDist > 0 || refreshing)"
+        class="stage__pull"
+        :class="{ 'is-ready': pullReady, 'is-refreshing': refreshing }"
+        :style="{ transform: `translateY(${refreshing ? 28 : pullDist}px)` }"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11a8 8 0 1 0-.5 3M20 5v6h-6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+
       <Transition :name="transitionName">
         <CharacterOverview
           v-if="current && page === 0"
@@ -228,6 +270,39 @@ html,body {
     border-radius: 24px;
     box-shadow: $shadow-lg;
   }
+}
+
+// 당겨서 새로고침 인디케이터
+.stage__pull {
+  position: absolute;
+  top: -10cqw;
+  left: 50%;
+  z-index: 7;
+  margin-left: -5cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 10cqw;
+  height: 10cqw;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+
+  svg {
+    width: 6cqw;
+    height: 6cqw;
+    transition: transform 0.15s ease;
+  }
+  // 임계값 도달 시 화살표를 한 바퀴 돌려 "놓으면 새로고침" 표시
+  &.is-ready svg { transform: rotate(180deg); }
+  &.is-refreshing svg { animation: pull-spin 0.8s linear infinite; }
+}
+@keyframes pull-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage__pull.is-refreshing svg { animation: none; }
 }
 
 // 해시태그 칩
