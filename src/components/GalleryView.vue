@@ -31,6 +31,11 @@ const items = computed<Item[]>(() => {
   return [...photos]
 })
 
+// 2단 배치: 최신(0,2,4…)을 왼쪽, 그다음(1,3,5…)을 오른쪽 컬럼에 쌓음
+// → 첫 행이 [왼쪽 1번][오른쪽 2번] 순서가 된다
+const leftItems = computed(() => items.value.filter((_, i) => i % 2 === 0))
+const rightItems = computed(() => items.value.filter((_, i) => i % 2 === 1))
+
 // 열릴 때 추가 사진 새로고침
 watch(
   () => props.open,
@@ -143,22 +148,44 @@ function onPanEnd() {
     </div>
 
     <div class="gallery__grid">
-      <div v-for="it in items" :key="it.id" class="gallery__cell">
-        <button type="button" class="gallery__item" @click.stop="openZoom(it)">
-          <img :src="it.img" :alt="it.name" draggable="false" referrerpolicy="no-referrer" />
-        </button>
-        <button
-          v-if="it.deletable"
-          type="button"
-          class="gallery__del"
-          aria-label="사진 삭제"
-          @pointerdown.stop
-          @click.stop="onDelete(it.img)"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
-          </svg>
-        </button>
+      <!-- 왼쪽 = 최신(1·3·5번째), 오른쪽 = 짝수 순번(2·4·6번째) -->
+      <div class="gallery__col">
+        <div v-for="it in leftItems" :key="it.id" class="gallery__cell">
+          <button type="button" class="gallery__item" @click.stop="openZoom(it)">
+            <img :src="it.img" :alt="it.name" draggable="false" referrerpolicy="no-referrer" />
+          </button>
+          <button
+            v-if="it.deletable"
+            type="button"
+            class="gallery__del"
+            aria-label="사진 삭제"
+            @pointerdown.stop
+            @click.stop="onDelete(it.img)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="gallery__col">
+        <div v-for="it in rightItems" :key="it.id" class="gallery__cell">
+          <button type="button" class="gallery__item" @click.stop="openZoom(it)">
+            <img :src="it.img" :alt="it.name" draggable="false" referrerpolicy="no-referrer" />
+          </button>
+          <button
+            v-if="it.deletable"
+            type="button"
+            class="gallery__del"
+            aria-label="사진 삭제"
+            @pointerdown.stop
+            @click.stop="onDelete(it.img)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -289,16 +316,21 @@ function onPanEnd() {
   &:active { opacity: 0.6; }
 }
 
-// 2단 메이슨리
+// 2단 메이슨리: 두 컬럼을 직접 나눠 좌/우 순서를 제어
 .gallery__grid {
-  column-count: 2;
-  column-gap: 3.5cqw;
+  display: flex;
+  gap: 3.5cqw;
   padding: 0 6.667% 12cqw;
+}
+.gallery__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .gallery__cell {
   position: relative;
   margin: 0 0 3.5cqw;
-  break-inside: avoid;
 }
 .gallery__item {
   display: block;
